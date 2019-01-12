@@ -1,12 +1,10 @@
-// Author © 2018-2019 Sergey Kordubin. Contacts: <acme@example.com>
+// Author © 2018-2019 Sergey Kordubin. Contacts: <root@roon-art.ru>
 // License: https://opensource.org/licenses/GPL-3.0
+// Source: https://github.com/Roon-Boh/Arduino-Speed-Track.git
 
-#include <ModbusRtu.h>
 
-#define ID 1 // Задаем адрес устройства 21.23.25.27.29 нечет для варот 1 , 20,22,24,26,28 чет для ворот 2
+#define DEF_IP 1 // Задаем адрес устройства 21.23.25.27.29 нечет для варот 1 , 20,22,24,26,28 чет для ворот 2
 #define TEST false
-
-#define RS485EN_PIN A0 // DE (driver enable),RE (receiver enable)— переключатель режимов приемника или передатчика MAX485
 
 #define ONOFF_PINS 12 // Пин кнопки включения в норме подтянут к +5В
 #define SW2_PINS 2 // Пин кнопки 
@@ -14,12 +12,10 @@
 #define SW4_PINS 4 // Пин кнопки 
 //#define ID_TYPE   199 // Задаем тип устройства 199 - доплер
 
-Modbus slave(ID, 0, RS485EN_PIN); // this is slave ID and RS-485
 
 uint8_t const ANODS_PINS[3] = {9, 10, 11}; // Задаем пины для кажого разряда
 uint8_t const SEGMENTS_PINS[7] = {8, 7, 6, 5, 4, 3, 2}; //Задаем пины для каждого сегмента
 boolean led;
-int8_t state = 0;
 int32_t tempus;
 int32_t tempus1;
 uint32_t led_time = 0; // таймер активности millis() + 10000.
@@ -44,8 +40,7 @@ void setup() {
 
   digitalWrite(13, HIGH ); // индикатор работы
 
-  // start communication
-  slave.begin( 19200 );
+  // start communications
   tempus = millis() + 100;
   digitalWrite(13, HIGH );
 }
@@ -59,27 +54,11 @@ void loop() {
   
   // poll messages
   // blink led pin on each valid message
-  state = slave.poll( au16data, 4 );
 
-  if (state > 4) {
-    tempus = millis() + 50;
-    digitalWrite(13, HIGH);
-  }
-  if (millis() > tempus) digitalWrite(13, LOW );
-
+  
+  
   int8_t u8summ = getDisplay();
-  if (1 < u8summ && u8summ < 199){
-    au16data[0] = u8summ;
-    tempus1 = millis() + 3000;
-  }
-  if (millis() > tempus1) au16data[0] = 0;
-  if(TEST == true){au16data[0] = (ID*10)+ID;}
-
   // diagnose communication
-  au16data[1] = slave.getInCnt();
-  au16data[2] = slave.getOutCnt();
-  au16data[3] = slave.getErrCnt();
-
   
 
 
