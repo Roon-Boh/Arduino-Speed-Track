@@ -1,9 +1,11 @@
+// Author © 2018-2019 Sergey Kordubin. Contacts: <acme@example.com>
+// License: https://opensource.org/licenses/GPL-3.0
 void setup() {
-  // put your setup code here, to run once:
+  // Поместите код установки здесь, чтобы запустить один раз:
 
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  Поместите ваш основной код здесь, чтобы запустить несколько раз:
 
 }
