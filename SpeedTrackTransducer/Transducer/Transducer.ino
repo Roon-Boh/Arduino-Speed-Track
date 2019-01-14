@@ -1,16 +1,41 @@
 // Author © 2018-2019 Sergey Kordubin. Contacts: <root@roon-art.ru>
 // License: https://opensource.org/licenses/GPL-3.0
-// Source: https://github.com/Roon-Boh/Arduino-Speed-Track.git
+// Source on GitHub: https://github.com/Roon-Boh/Arduino-Speed-Track.git
+//
+//
+// ONOFF_PINS  (пин на кнопку On/Off)
+// SW_1 (пин через резистор на кнопку On/Off)
+// SW_2 (пин на кнопку "MPH")
+// SW_3 (пин на кнопку "ReCall")
+// SW_4 (пин на кнопку "Km/H")
+// LED_1 (LED MPH)
+// LED_2 (LED Km/H)
+//
+// Аноды-Сегменты дисплея от A до G
+// SEGMENTS_PINS[0] SEG_A          
+// SEGMENTS_PINS[1] SEG_B          
+// SEGMENTS_PINS[2] SEG_C LD_2 SW_3
+// SEGMENTS_PINS[3] SEG_D LD_1 SW_1
+// SEGMENTS_PINS[4] SEG_E          
+// SEGMENTS_PINS[5] SEG_F          
+// SEGMENTS_PINS[6] SEG_G          
+// 
+// Разряды-Катоды дисплея
+// ANODS_PINS[0] DIG_1 (Led)
+// ANODS_PINS[1] DIG_2
+// ANODS_PINS[2] DIG_3  
+//
+//
+//
 
 
-#define DEF_IP 1 // Задаем адрес устройства 21.23.25.27.29 нечет для варот 1 , 20,22,24,26,28 чет для ворот 2
-#define TEST false
+
 
 #define ONOFF_PINS 12 // Пин кнопки включения в норме подтянут к +5В
 #define SW2_PINS 2 // Пин кнопки 
 #define SW3_PINS 6 // Пин кнопки 
 #define SW4_PINS 4 // Пин кнопки 
-//#define ID_TYPE   199 // Задаем тип устройства 199 - доплер
+
 
 
 uint8_t const ANODS_PINS[3] = {9, 10, 11}; // Задаем пины для кажого разряда
@@ -146,7 +171,7 @@ int getSegments() {
       return 9;
     case B0000000: //Пусто
       return 0;
-    case B1100000: //1 1-ого р-да  //96  //0x60
+    case B1100000: // цифра "1" 1-ого р-да  //96  //0x60
       return 1;
     case B0001000: // LED1
       return 103;
