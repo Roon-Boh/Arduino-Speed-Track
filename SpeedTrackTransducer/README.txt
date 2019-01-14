@@ -3,22 +3,26 @@
  Source on GitHub: https://github.com/Roon-Boh/Arduino-Speed-Track.git
 
 
- PIN
-  0   ON_PIN  (пин на кнопку On/Off)
-  0   LED_3 (светодиод состояния считывателя)
+_PIN PIN
+ 12   0   ON_PIN  (On/Off button)
+ 13   0   LED_3 (Reader status LED)
 
-Катоды-Сегменты дисплея от A до G
+Cathodes-Segments Sensor A to G
 _PIN  PIN     Array[]         
-  0    0    SEGMENTS[0]    SEG_A
-  0    0    SEGMENTS[1]    SEG_B
-  0    0    SEGMENTS[2]    SEG_C    SW_3    (CLD_2) (пин на кнопку "ReCall")
-  0    0    SEGMENTS[3]    SEG_D    SW_1    (CLD_1) (пин через резистор на кнопку On/Off)
-  0    0    SEGMENTS[4]    SEG_E    SW_4    (пин на кнопку "Km/H")
-  0    0    SEGMENTS[5]    SEG_F
-  0    0    SEGMENTS[6]    SEG_G    SW_2    (пин на кнопку "MPH")
+  8    8    SEGMENTS[0]    SEG_A
+  7    7    SEGMENTS[1]    SEG_B
+  6    6    SEGMENTS[2]    SEG_C    SW_3    (CLD_2) (Pin on the "ReCall" button)
+  5    5    SEGMENTS[3]    SEG_D    SW_1    (CLD_1) (Pin via resistor to the ON/Off button)
+  4    4    SEGMENTS[4]    SEG_E    SW_4    (Pin on the button "Km/H")
+  3    3    SEGMENTS[5]    SEG_F
+  2    2    SEGMENTS[6]    SEG_G    SW_2    (Pin on the "MPH" button)
  
-Разряды-Аноды дисплея
+Digits-Anodes Sensor
 _PIN  PIN    Array[]           
-  0    0    DIG[0]    DIG_1    ALED    (LED Anode)
-  0    0    DIG[1]    DIG_2        
-  0    0    DIG[2]    DIG_3
+  9    A1    DIG[0]    DIG_1    ALED    (LED Anode)
+ 10    A2    DIG[1]    DIG_2        
+ 11    A3    DIG[2]    DIG_3
+
+Module MINI ENC28J60
+  PIN    
+    8    
