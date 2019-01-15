@@ -88,7 +88,7 @@ void loop() {
   if(u8summ > 1){
     
     // если значение старое то сбрасываем его
-    if((millis() - buftime) > 2000){
+    if((millis() - buftime) >= 2000){
       u8summbuf = 0;
     }
     
@@ -119,11 +119,11 @@ void loop() {
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: text/html");
           client.println("Connection: close");  // соединение будет закрыто после завершения ответа
-          client.println("Refresh: 5");  // автоматически обновлять страницу каждые 5 секунд
+          client.println("Refresh: 2");  // автоматически обновлять страницу каждые 5 секунд
           client.println();
           client.println("<!DOCTYPE HTML>");
           client.println("<html>");
-          if(2500 >=(millis() - buftime)){
+          if(5000 < (millis() - buftime)){
             u8summbuf = 0;
           }
           client.println("<h1>" + String(u8summbuf) + "</h1>");
@@ -293,5 +293,3 @@ void pressStart(){
     pinMode(DIG[1], INPUT);  // DIG_2
     pinMode(DIG[2], INPUT);  // DIG_3
   }
-
-
