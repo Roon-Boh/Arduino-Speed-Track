@@ -60,6 +60,8 @@ EthernetServer server(80);
  *  Setup procedure
  */
 void setup() {
+  //IPAddress ip(192, 168, 0, 77);
+  
   
   // Если A3 поддтянут к земле то чищу EEPROM
   if(!A3) {
@@ -70,37 +72,36 @@ void setup() {
   
   // задаем мак по умолчанию
   byte mac[6]; // = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-
   // если мак есть в памяти то переопределяем его
   if(EEPROM.read(10) == 127){
-      mac[5] = EEPROM.read(16);
-      mac[4] = EEPROM.read(15);
-      mac[3] = EEPROM.read(14);
-      mac[2] = EEPROM.read(13);
-      mac[1] = EEPROM.read(12);
       mac[0] = EEPROM.read(11);
+      mac[1] = EEPROM.read(12);
+      mac[2] = EEPROM.read(13);
+      mac[3] = EEPROM.read(14);
+      mac[4] = EEPROM.read(15);
+      mac[5] = EEPROM.read(16);
   } else {
-      mac[5] = 0xDE;
-      mac[4] = 0xAD;
-      mac[3] = 0xBE;
-      mac[2] = 0xEF;
-      mac[1] = 0xFE;
-      mac[0] = 0xED;
+      mac[0] = 0xDE;
+      mac[1] = 0xAD;
+      mac[2] = 0xBE;
+      mac[3] = 0xEF;
+      mac[4] = 0xFE;
+      mac[5] = 0xED;
   }
 
   byte ip_set[4]; // = {192, 168, 0, 77};
   if(EEPROM.read(20) == 127){
-      ip_set[3] = EEPROM.read(24);
-      ip_set[2] = EEPROM.read(23);
-      ip_set[1] = EEPROM.read(22);
       ip_set[0] = EEPROM.read(21);
+      ip_set[1] = EEPROM.read(22);
+      ip_set[2] = EEPROM.read(23);
+      ip_set[3] = EEPROM.read(24);
   } else {
-      ip_set[3] = 192;
-      ip_set[2] = 168;
-      ip_set[1] = 0;
-      ip_set[0] = 77;
+      ip_set[0] = 192;
+      ip_set[1] = 168;
+      ip_set[2] = 0;
+      ip_set[3] = 77;
   }
-  IPAddress ip(ip_set[3], ip_set[2], ip_set[1], ip_set[0]);
+  IPAddress ip(ip_set[0], ip_set[1], ip_set[2], ip_set[3]);
   
   Serial.begin(9600);
    if(Serial){
@@ -165,10 +166,12 @@ void loop() {
           
           while (client.available()) {     //Обработка запроса POST(находится после пустой строки заголовка)
             post = client.read();
-            if (buffer.length() <= 128) {
+            if (buffer.length() <= 120) {
               buffer += post;
             }
           }
+          // cmd=ip:192.168.0.77,mac:255.255.255.255.255.255
+          // cmd=ip%3A192.168.0.77%2Cmac%3A255.255.255.255.255.255
           if (buffer.indexOf("cmd=") >= 0) {
             // to do
           }
@@ -180,7 +183,7 @@ void loop() {
           }
           client.println("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!DOCTYPE HTML><html><h1>" + String(u8summbuf) + "</h1>");
           client.println("<form method='POST'><input type='text' name='cmd'></form></html>");
-          //Serial.println(buffer);  // Распечатка POST запроса
+          Serial.println(buffer);  // Распечатка POST запроса
           break;
         }
         if (c == '\n') {
@@ -340,6 +343,4 @@ void pressStart(){
     pinMode(DIG[0], INPUT);   // DIG_1
     pinMode(DIG[1], INPUT);  // DIG_2
     pinMode(DIG[2], INPUT);  // DIG_3
-    pinMode(A3, INPUT_PULLUP); // EEPROM Reset
-  
   }
