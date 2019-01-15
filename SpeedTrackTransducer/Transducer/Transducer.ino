@@ -22,6 +22,7 @@
 //
 #include <SPI.h>
 #include <UIPEthernet.h>
+#include <EEPROM.h>
 
 #define ON_PIN 9 // Пин кнопки включения в норме подтянут к +5В
 #define SW_2 2 // Пин кнопки 
@@ -40,13 +41,15 @@ int8_t u8summbuf = 0; // буфер скорости для передачи у�
 unsigned long starttime;
 unsigned long buftime; // время последнего запроса
 
+char post; 
+
+// начальный адрес памяти EEPROM
+int address = 0;
+byte value;
+
 //byte mac[] = {0xAE, 0xB2, 0x26, 0xE4, 0x4A, 0x5C}; // MAC-адрес
 // Введите MAC-адрес и IP-адрес для вашего контроллера ниже.
 // IP-адрес будет зависеть от вашей локальной сети:
-byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
-};
-IPAddress ip(192, 168, 0, 77);
 
 // Инициализируйте библиотеку сервера Ethernet
 // с IP-адресом и портом, который вы хотите использовать
@@ -57,8 +60,50 @@ EthernetServer server(80);
  *  Setup procedure
  */
 void setup() {
+  
+  // Если A3 поддтянут к земле то чищу EEPROM
+  if(!A3) {
+    for(int i = 0; i < 512; i++){
+      EEPROM.write(i, 0xFF);
+    }
+  }
+  
+  // задаем мак по умолчанию
+  byte mac[6]; // = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+  // если мак есть в памяти то переопределяем его
+  if(EEPROM.read(10) == 127){
+      mac[5] = EEPROM.read(16);
+      mac[4] = EEPROM.read(15);
+      mac[3] = EEPROM.read(14);
+      mac[2] = EEPROM.read(13);
+      mac[1] = EEPROM.read(12);
+      mac[0] = EEPROM.read(11);
+  } else {
+      mac[5] = 0xDE;
+      mac[4] = 0xAD;
+      mac[3] = 0xBE;
+      mac[2] = 0xEF;
+      mac[1] = 0xFE;
+      mac[0] = 0xED;
+  }
+
+  byte ip_set[4]; // = {192, 168, 0, 77};
+  if(EEPROM.read(20) == 127){
+      ip_set[3] = EEPROM.read(24);
+      ip_set[2] = EEPROM.read(23);
+      ip_set[1] = EEPROM.read(22);
+      ip_set[0] = EEPROM.read(21);
+  } else {
+      ip_set[3] = 192;
+      ip_set[2] = 168;
+      ip_set[1] = 0;
+      ip_set[0] = 77;
+  }
+  IPAddress ip(ip_set[3], ip_set[2], ip_set[1], ip_set[0]);
+  
   Serial.begin(9600);
-   if (Serial){
+   if(Serial){
     uart_status = true;
   }
   
@@ -73,7 +118,7 @@ void setup() {
 
   // start the server
   server.begin();
-  Serial.println("server is at " + String(Ethernet.localIP()));
+  Serial.println(Ethernet.localIP());
 }
 
 
@@ -108,6 +153,7 @@ void loop() {
     Serial.println("new client");
     // HTTP-запрос заканчивается пустой строкой
     boolean currentLineIsBlank = true;
+    String buffer = String(""); // буфер от клиента 
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
@@ -115,19 +161,26 @@ void loop() {
         // если вы дошли до конца строки (получили символ новой строки) и строка пуста,
         // http-запрос завершен, поэтому вы можете отправить ответ
         if (c == '\n' && currentLineIsBlank) {
+
+          
+          while (client.available()) {     //Обработка запроса POST(находится после пустой строки заголовка)
+            post = client.read();
+            if (buffer.length() <= 128) {
+              buffer += post;
+            }
+          }
+          if (buffer.indexOf("cmd=") >= 0) {
+            // to do
+          }
+
+          
           // Отправить стандартный заголовок HTTP-ответа
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-Type: text/html");
-          client.println("Connection: close");  // соединение будет закрыто после завершения ответа
-          client.println("Refresh: 2");  // автоматически обновлять страницу каждые 5 секунд
-          client.println();
-          client.println("<!DOCTYPE HTML>");
-          client.println("<html>");
           if(5000 < (millis() - buftime)){
             u8summbuf = 0;
           }
-          client.println("<h1>" + String(u8summbuf) + "</h1>");
-          client.println("</html>");
+          client.println("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!DOCTYPE HTML><html><h1>" + String(u8summbuf) + "</h1>");
+          client.println("<form method='POST'><input type='text' name='cmd'></form></html>");
+          //Serial.println(buffer);  // Распечатка POST запроса
           break;
         }
         if (c == '\n') {
@@ -143,7 +196,7 @@ void loop() {
     delay(1);
     // закрыть соединение:
     client.stop();
-    Serial.println("client disconnected");
+    Serial.println("Disconnected");
   }
 }//END loop()_________________________________________________________________END loop()
 
@@ -243,7 +296,6 @@ void pressStart(){
   for(; millis() < u32tonoff;){
     if(!digitalRead(DIG[0]) && digitalRead(DIG[1])){
       u32tonoff = 0;
-      Serial.println("Датчик Уже Включен");
     }
   }
   if(0 < u32tonoff){
@@ -268,10 +320,6 @@ void pressStart(){
     digitalWrite(SW_4, LOW);
     for(int32_t u32ton = (millis() + 1000); millis() < u32ton;){ }
     pinMode(SW_4, INPUT_PULLUP);
-    Serial.println("Стартую, Датчик включен и настроен");
-  }
-  else {
-    Serial.println("Стартую, Датчик был включен");
   }
 }
 
@@ -292,4 +340,6 @@ void pressStart(){
     pinMode(DIG[0], INPUT);   // DIG_1
     pinMode(DIG[1], INPUT);  // DIG_2
     pinMode(DIG[2], INPUT);  // DIG_3
+    pinMode(A3, INPUT_PULLUP); // EEPROM Reset
+  
   }
