@@ -1,12 +1,6 @@
-#include <SPI.h>
-#include <UIPEthernet.h>
-#include <utility/logging.h>
-
 // Author © 2018-2019 Sergey Kordubin. Contacts: <root@roon-art.ru>
 // License: https://opensource.org/licenses/GPL-3.0
 // Source on GitHub: https://github.com/Roon-Boh/Arduino-Speed-Track.git
-//
-//
 //
 //Cathodes-Segments Sensor A to G
 //_PIN  PIN     Array[]         
@@ -26,16 +20,13 @@
 //
 //
 //
-
-
-
+#include <SPI.h>
+#include <UIPEthernet.h>
 
 #define ON_PIN 9 // Пин кнопки включения в норме подтянут к +5В
 #define SW_2 2 // Пин кнопки 
 #define SW_3 6 // Пин кнопки 
 #define SW_4 4 // Пин кнопки 
-
-
 
 uint8_t const DIG[3] = {A2, A1, A0}; // Задаем пины для кажого разряда
 uint8_t const SEGMENTS[7] = {8, 7, 6, 5, 4, 3, 2}; //Задаем пины для каждого сегмента
@@ -44,82 +35,116 @@ uint8_t reed_dig_count = 0; // счетчик суммарных считыва�
 uint8_t max_reed_dig_count = 10;// максимальное кол-во считывания каждого из разрядов. 
 //0 - сотни, 1 - десятки, 2 - единицы, 3 - сумировать и сбросить
 uint8_t reed_dig[4][11] = {0}; // массив данных для считывания дисплея.
+boolean uart_status = false;
+int8_t u8summbuf = 0; // буфер скорости для передачи удаленному серверу
+unsigned long starttime;
+unsigned long buftime; // время последнего запроса
 
+//byte mac[] = {0xAE, 0xB2, 0x26, 0xE4, 0x4A, 0x5C}; // MAC-адрес
+// Введите MAC-адрес и IP-адрес для вашего контроллера ниже.
+// IP-адрес будет зависеть от вашей локальной сети:
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
+IPAddress ip(192, 168, 0, 77);
 
-// определяем конфигурацию сети
-byte mac[] = {0xAE, 0xB2, 0x26, 0xE4, 0x4A, 0x5C}; // MAC-адрес
-//byte ip[] = {192, 168, 0, 10}; // IP-адрес
-//byte myDns[] = {192, 168, 0, 1}; // адрес DNS-сервера
-//byte gateway[] = {192, 168, 0, 1}; // адрес сетевого шлюза
-//byte subnet[] = {255, 255, 255, 0}; // маска подсети
-
-EthernetServer server(2000); // создаем сервер, порт 2000
-EthernetClient client; // объект клиент
-boolean clientAlreadyConnected= false; // признак клиент уже подключен
+// Инициализируйте библиотеку сервера Ethernet
+// с IP-адресом и портом, который вы хотите использовать
+// (порт 80 по умолчанию для HTTP):
+EthernetServer server(80);
 
 /**
  *  Setup procedure
  */
 void setup() {
-  //  инициализация портов ввода вывода для считывания сегментов
   Serial.begin(9600);
+   if (Serial){
+    uart_status = true;
+  }
+  
+  //  инициализация портов ввода вывода для считывания сегментов
   ioSetup();
   
   // Управление включением SW_1
   pressStart();
-
   
-  //Ethernet.begin(mac, ip, myDns, gateway, subnet); // инициализация контроллера
-  // инициализация контроллера
-  Serial.println("Getting IP address using DHCP");
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure using DHCP");
-    while(true) ; // зависаем по ошибке
-  }
+  // Запустите соединение Ethernet и сервер:
+  Ethernet.begin(mac, ip);
 
-
-  // вывод IP адреса 
-  Serial.print("IP address: "); 
-  IPAddress ip = Ethernet.localIP();
-  for (byte i = 0; i < 4; i++) {
-    Serial.print(ip[i], DEC);
-    if(i < 3){Serial.print(".");}
-    else {Serial.print("\n");}
-  }
-  Serial.println();
-  server.begin(); // включаем ожидание входящих соединений
-  //Serial.println(Ethernet.localIP()); // выводим IP-адрес контроллера
-
+  // start the server
+  server.begin();
+  Serial.println("server is at " + String(Ethernet.localIP()));
 }
+
 
 /**
  *  Loop procedure
  */
 void loop() {
+  // получаем значение скорости
   int8_t u8summ = getDisplay();
-  if(u8summ > 1){Serial.println(u8summ);}
-  // diagnose communication
-  
-  client = server.available(); // ожидаем объект клиент
-  if (client) {
-    // есть данные от клиента
-    if (clientAlreadyConnected == false) {
-      // сообщение о подключении
-      Serial.println("Client connected");
-      client.println("Server ready"); // ответ клиенту
-      clientAlreadyConnected= true; 
+
+  // Готовим большее значение
+  if(u8summ > 1){
+    
+    // если значение старое то сбрасываем его
+    if((millis() - buftime) > 2000){
+      u8summbuf = 0;
     }
-
-    while(client.available() > 0) {
-      char chr = client.read(); // чтение символа
-      server.write(chr); // передача клиенту
-      Serial.write(chr);
-    } 
+    
+    if(u8summbuf < u8summ){
+      u8summbuf = u8summ;
+    }
+    buftime = millis(); // время обновления буфера
+    
+    if(u8summbuf > 1) {
+      Serial.println(u8summ);
+    }
   }
-
-
   
-  
+  // слушать входящих клиентов
+  EthernetClient client = server.available();
+  if (client) {
+    Serial.println("new client");
+    // HTTP-запрос заканчивается пустой строкой
+    boolean currentLineIsBlank = true;
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        Serial.write(c);
+        // если вы дошли до конца строки (получили символ новой строки) и строка пуста,
+        // http-запрос завершен, поэтому вы можете отправить ответ
+        if (c == '\n' && currentLineIsBlank) {
+          // Отправить стандартный заголовок HTTP-ответа
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-Type: text/html");
+          client.println("Connection: close");  // соединение будет закрыто после завершения ответа
+          client.println("Refresh: 5");  // автоматически обновлять страницу каждые 5 секунд
+          client.println();
+          client.println("<!DOCTYPE HTML>");
+          client.println("<html>");
+          if(2500 >=(millis() - buftime)){
+            u8summbuf = 0;
+          }
+          client.println("<h1>" + String(u8summbuf) + "</h1>");
+          client.println("</html>");
+          break;
+        }
+        if (c == '\n') {
+          // Вы начинаете новую строку
+          currentLineIsBlank = true;
+        } else if (c != '\r') {
+          //вы получили символ в текущей строке
+          currentLineIsBlank = false;
+        }
+      }
+    }
+    // дать веб-браузеру время для получения данных
+    delay(1);
+    // закрыть соединение:
+    client.stop();
+    Serial.println("client disconnected");
+  }
 }//END loop()_________________________________________________________________END loop()
 
 
