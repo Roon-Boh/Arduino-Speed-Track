@@ -17,8 +17,18 @@
  +3.3   9  VCC  (Input external power 3.3 volts)
  GNG    10 GND  (General conclusion)
 
-_PIN PIN
- 12   9   ON_PIN  (On/Off button)
+                        Transducer
+                          ------
+OLD_D11 -> DIG_1 -> A0 >|[ 1][ 2]| GND
+OLD_D10 -> DIG_2 -> A1  |[ 3][ 4]| GND
+OLD_D9  -> DIG_3 -> A2  |[ 5][ 6]| VCC
+OLD_D8  -> SEG_A -> D8  |[ 7][ 8]| GND
+OLD_D7  -> SEG_B -> D7  |[ 9][10]  GND
+OLD_D6  -> SEG_C -> D6  |[11][12]  GND
+OLD_D5  -> SEG_D -> D5  |[13][14]| GND
+OLD_D4  -> SEG_E -> D4  |[15][16]| VCC
+OLD_D3  -> SEG_F -> D3  |[17][18]| GND
+OLD_D2  -> SEG_G -> D2  |[19][20]| UNO_D9 <- OLD_D12 <- ON_PIN  (On/Off button)
 
 Cathodes-Segments Sensor A to G
 _PIN  PIN     Array[]         
@@ -39,18 +49,6 @@ _PIN  PIN    Array[]
  
 
  
-                Transducer
-                 ------
-OLD_D11 -> DIG_1 -> A0 >|[ 1][ 2]| GND
-OLD_D10 -> DIG_2 -> A1  |[ 3][ 4]| GND
-OLD_D9  -> DIG_3 -> A2  |[ 5][ 6]| VCC
-OLD_D8  -> SEG_A -> D8  |[ 7][ 8]| GND
-OLD_D7  -> SEG_B -> D7  |[ 9][10]  GND
-OLD_D6  -> SEG_C -> D6  |[11][12]  GND
-OLD_D5  -> SEG_D -> D5  |[13][14]| GND
-OLD_D4  -> SEG_E -> D4  |[15][16]| VCC
-OLD_D3  -> SEG_F -> D3  |[17][18]| GND
-OLD_D2  -> SEG_G -> D2  |[19][20]| UNO_D9 <- OLD_D12 <- ON_PIN  (On/Off button)
                  ------
 
 

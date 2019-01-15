@@ -3,27 +3,22 @@
 // Source on GitHub: https://github.com/Roon-Boh/Arduino-Speed-Track.git
 //
 //
-// ONOFF_PINS  (пин на кнопку On/Off)
-// SW_1 (пин через резистор на кнопку On/Off)
-// SW_2 (пин на кнопку "MPH")
-// SW_3 (пин на кнопку "ReCall")
-// SW_4 (пин на кнопку "Km/H")
-// LED_1 (LED MPH)
-// LED_2 (LED Km/H)
 //
-// Аноды-Сегменты дисплея от A до G
-// SEGMENTS_PINS[0] SEG_A          
-// SEGMENTS_PINS[1] SEG_B          
-// SEGMENTS_PINS[2] SEG_C LD_2 SW_3
-// SEGMENTS_PINS[3] SEG_D LD_1 SW_1
-// SEGMENTS_PINS[4] SEG_E          
-// SEGMENTS_PINS[5] SEG_F          
-// SEGMENTS_PINS[6] SEG_G          
+//Cathodes-Segments Sensor A to G
+//_PIN  PIN     Array[]         
+//  8    8    SEGMENTS[0]    SEG_A
+//  7    7    SEGMENTS[1]    SEG_B
+//  6    6    SEGMENTS[2]    SEG_C, SW_3  (Catod LD_2) (Pin on the "ReCall" button)
+//  5    5    SEGMENTS[3]    SEG_D, SW_1  (Catod LD_1) (Pin via resistor to the ON/Off button)
+//  4    4    SEGMENTS[4]    SEG_E, SW_4  (Pin on the button "Km/H")
+//  3    3    SEGMENTS[5]    SEG_F
+//  2    2    SEGMENTS[6]    SEG_G, SW_2  (Pin on the "MPH" button)
 // 
-// Разряды-Катоды дисплея
-// ANODS_PINS[0] DIG_1 (Led)
-// ANODS_PINS[1] DIG_2
-// ANODS_PINS[2] DIG_3  
+//Digits-Anodes Sensor
+//_PIN  PIN    Array[]           
+//  9    A0    DIG[0]    DIG_1 (Hundreds), (LED Anode)
+// 10    A1    DIG[1]    DIG_2 (Tens)
+// 11    A2    DIG[2]    DIG_3 (Units) 
 //
 //
 //
@@ -31,25 +26,20 @@
 
 
 
-#define ONOFF_PINS 12 // Пин кнопки включения в норме подтянут к +5В
-#define SW2_PINS 2 // Пин кнопки 
-#define SW3_PINS 6 // Пин кнопки 
-#define SW4_PINS 4 // Пин кнопки 
+#define ON_PIN 9 // Пин кнопки включения в норме подтянут к +5В
+#define SW_2 2 // Пин кнопки 
+#define SW_3 6 // Пин кнопки 
+#define SW_4 4 // Пин кнопки 
 
 
 
-uint8_t const ANODS_PINS[3] = {9, 10, 11}; // Задаем пины для кажого разряда
-uint8_t const SEGMENTS_PINS[7] = {8, 7, 6, 5, 4, 3, 2}; //Задаем пины для каждого сегмента
-boolean led;
-int32_t tempus;
-int32_t tempus1;
-uint32_t led_time = 0; // таймер активности millis() + 10000.
-//0 - сотни, 1 - десятки, 2 - единицы, 3 - сумировать и сбросить
+uint8_t const DIG[3] = {A2, A1, A0}; // Задаем пины для кажого разряда
+uint8_t const SEGMENTS[7] = {8, 7, 6, 5, 4, 3, 2}; //Задаем пины для каждого сегмента
 int8_t u8dig_count = 0; // указатель очереди считывания разряда
 uint8_t reed_dig_count = 0; // счетчик суммарных считываний разрядов.
 uint8_t max_reed_dig_count = 10;// максимальное кол-во считывания каждого из разрядов. 
+//0 - сотни, 1 - десятки, 2 - единицы, 3 - сумировать и сбросить
 uint8_t reed_dig[4][11] = {0}; // массив данных для считывания дисплея.
-uint16_t au16data[4]; // массив данных для ModBus RTU RS-485
 
 
 /**
@@ -57,32 +47,20 @@ uint16_t au16data[4]; // массив данных для ModBus RTU RS-485
  */
 void setup() {
   //  инициализация портов ввода вывода для считывания сегментов
+  Serial.begin(9600);
   ioSetup();
   
   // Управление включением SW_1
   pressStart();
 
-
-  digitalWrite(13, HIGH ); // индикатор работы
-
-  // start communications
-  tempus = millis() + 100;
-  digitalWrite(13, HIGH );
 }
 
 /**
  *  Loop procedure
  */
 void loop() {
-
-
-  
-  // poll messages
-  // blink led pin on each valid message
-
-  
-  
   int8_t u8summ = getDisplay();
+  if(u8summ > 1){Serial.println(u8summ);}
   // diagnose communication
   
 
@@ -95,7 +73,7 @@ void loop() {
 
 int getDisplay() {
   if(u8dig_count < 3){
-    if(!digitalRead(ANODS_PINS[u8dig_count])){
+    if(!digitalRead(DIG[u8dig_count])){
       int8_t u8getseg = getSegments();
       if(u8getseg < 10){
         reed_dig[u8dig_count][reed_dig_count] = u8getseg;
@@ -143,7 +121,7 @@ int getDisplay() {
 int getSegments() {
   uint8_t buf_gd = 0;
   for (uint8_t i_gd = 0; i_gd < 7; i_gd++) {
-    bitWrite(buf_gd, (i_gd), !digitalRead(SEGMENTS_PINS[i_gd]));
+    bitWrite(buf_gd, (i_gd), !digitalRead(SEGMENTS[i_gd]));
     if (i_gd == 6) {
       bitWrite(buf_gd, 7, 0);
     }
@@ -185,50 +163,37 @@ int getSegments() {
 void pressStart(){
   int32_t u32tonoff = (millis() + 6000);
   for(; millis() < u32tonoff;){
-    if(!digitalRead(ANODS_PINS[0]) && digitalRead(ANODS_PINS[1])){
+    if(!digitalRead(DIG[0]) && digitalRead(DIG[1])){
       u32tonoff = 0;
+      Serial.println("Датчик Уже Включен");
     }
   }
   if(0 < u32tonoff){
-    pinMode(ONOFF_PINS, OUTPUT);
-    pinMode(SEGMENTS_PINS[3], OUTPUT);
-    digitalWrite(ONOFF_PINS, LOW);
-    digitalWrite(SEGMENTS_PINS[3], LOW);
-    digitalWrite(13, HIGH );
+    pinMode(ON_PIN, OUTPUT);
+    pinMode(SEGMENTS[3], OUTPUT);
+    digitalWrite(ON_PIN, LOW);
+    digitalWrite(SEGMENTS[3], LOW);
     for(int32_t u32ton = (millis() + 1000); millis() < u32ton;){ }
-    digitalWrite(ONOFF_PINS, LOW);
-    digitalWrite(13, LOW );
-    pinMode(ONOFF_PINS, INPUT);
-    pinMode(SEGMENTS_PINS[3], INPUT_PULLUP);
+    digitalWrite(ON_PIN, LOW);
+    pinMode(ON_PIN, INPUT);
+    pinMode(SEGMENTS[3], INPUT_PULLUP);
     for(int32_t u32ton = (millis() + 1000); millis() < u32ton;){ }
-    pinMode(SW2_PINS, OUTPUT);
-    pinMode(SW4_PINS, OUTPUT);
-    digitalWrite(13, HIGH );
-    digitalWrite(SW2_PINS, LOW );
-    digitalWrite(SW4_PINS, LOW );
+    pinMode(SW_2, OUTPUT);
+    pinMode(SW_4, OUTPUT);
+    digitalWrite(SW_2, LOW );
+    digitalWrite(SW_4, LOW );
     for(int32_t u32ton = (millis() + 2000); millis() < u32ton;){ }
-    pinMode(SW2_PINS, INPUT_PULLUP);
-    pinMode(SW4_PINS, INPUT_PULLUP);
-    digitalWrite(13, LOW );
+    pinMode(SW_2, INPUT_PULLUP);
+    pinMode(SW_4, INPUT_PULLUP);
     for(int32_t u32ton = (millis() + 1000); millis() < u32ton;){ }
-    pinMode(SW4_PINS, OUTPUT);
-    digitalWrite(SW4_PINS, LOW);
-    digitalWrite(13, HIGH);
+    pinMode(SW_4, OUTPUT);
+    digitalWrite(SW_4, LOW);
     for(int32_t u32ton = (millis() + 1000); millis() < u32ton;){ }
-    pinMode(SW4_PINS, INPUT_PULLUP);
-    digitalWrite(13, LOW);
+    pinMode(SW_4, INPUT_PULLUP);
+    Serial.println("Стартую, Датчик включен и настроен");
   }
   else {
-    for(int8_t countblink = 0; countblink < 3; countblink++){
-      for(int32_t u32ton = (millis() + 500); millis() < u32ton;){ }
-      digitalWrite(13, HIGH);
-      for(int32_t u32ton = (millis() + 100); millis() < u32ton;){ }
-      digitalWrite(13, LOW);
-      for(int32_t u32ton = (millis() + 100); millis() < u32ton;){ }
-      digitalWrite(13, HIGH);
-      for(int32_t u32ton = (millis() + 100); millis() < u32ton;){ }
-      digitalWrite(13, LOW);
-    }
+    Serial.println("Стартую, Датчик был включен");
   }
 }
 
@@ -237,16 +202,16 @@ void pressStart(){
   void ioSetup() 
   {
     // Аноды-Сегменты от A до G) дисплея
-    pinMode(SEGMENTS_PINS[0], INPUT_PULLUP); // SEG_A      SW_2
-    pinMode(SEGMENTS_PINS[1], INPUT_PULLUP); // SEG_B
-    pinMode(SEGMENTS_PINS[2], INPUT_PULLUP); // SEG_C LD_2 SW_4
-    pinMode(SEGMENTS_PINS[3], INPUT_PULLUP); // SEG_D LD_1 SW_1
-    pinMode(SEGMENTS_PINS[4], INPUT_PULLUP); // SEG_E      SW_3
-    pinMode(SEGMENTS_PINS[5], INPUT_PULLUP); // SEG_F
-    pinMode(SEGMENTS_PINS[6], INPUT_PULLUP); // SEG_G
+    pinMode(SEGMENTS[0], INPUT_PULLUP); // SEG_A      
+    pinMode(SEGMENTS[1], INPUT_PULLUP); // SEG_B
+    pinMode(SEGMENTS[2], INPUT_PULLUP); // SEG_C
+    pinMode(SEGMENTS[3], INPUT_PULLUP); // SEG_D
+    pinMode(SEGMENTS[4], INPUT_PULLUP); // SEG_E
+    pinMode(SEGMENTS[5], INPUT_PULLUP); // SEG_F
+    pinMode(SEGMENTS[6], INPUT_PULLUP); // SEG_G
   
     // Разряды-Катоды дисплея
-    pinMode(ANODS_PINS[0], INPUT);   // DIG_1 (Led)
-    pinMode(ANODS_PINS[1], INPUT);  // DIG_2
-    pinMode(ANODS_PINS[2], INPUT);  // DIG_3
+    pinMode(DIG[0], INPUT);   // DIG_1
+    pinMode(DIG[1], INPUT);  // DIG_2
+    pinMode(DIG[2], INPUT);  // DIG_3
   }
