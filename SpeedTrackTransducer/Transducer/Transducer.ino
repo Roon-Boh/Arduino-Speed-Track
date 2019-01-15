@@ -293,3 +293,5 @@ void pressStart(){
     pinMode(DIG[1], INPUT);  // DIG_2
     pinMode(DIG[2], INPUT);  // DIG_3
   }
+
+
