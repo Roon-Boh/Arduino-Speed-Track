@@ -1,3 +1,7 @@
+#include <SPI.h>
+#include <UIPEthernet.h>
+#include <utility/logging.h>
+
 // Author © 2018-2019 Sergey Kordubin. Contacts: <root@roon-art.ru>
 // License: https://opensource.org/licenses/GPL-3.0
 // Source on GitHub: https://github.com/Roon-Boh/Arduino-Speed-Track.git
@@ -42,6 +46,17 @@ uint8_t max_reed_dig_count = 10;// максимальное кол-во счит
 uint8_t reed_dig[4][11] = {0}; // массив данных для считывания дисплея.
 
 
+// определяем конфигурацию сети
+byte mac[] = {0xAE, 0xB2, 0x26, 0xE4, 0x4A, 0x5C}; // MAC-адрес
+//byte ip[] = {192, 168, 0, 10}; // IP-адрес
+//byte myDns[] = {192, 168, 0, 1}; // адрес DNS-сервера
+//byte gateway[] = {192, 168, 0, 1}; // адрес сетевого шлюза
+//byte subnet[] = {255, 255, 255, 0}; // маска подсети
+
+EthernetServer server(2000); // создаем сервер, порт 2000
+EthernetClient client; // объект клиент
+boolean clientAlreadyConnected= false; // признак клиент уже подключен
+
 /**
  *  Setup procedure
  */
@@ -53,6 +68,28 @@ void setup() {
   // Управление включением SW_1
   pressStart();
 
+  
+  //Ethernet.begin(mac, ip, myDns, gateway, subnet); // инициализация контроллера
+  // инициализация контроллера
+  Serial.println("Getting IP address using DHCP");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure using DHCP");
+    while(true) ; // зависаем по ошибке
+  }
+
+
+  // вывод IP адреса 
+  Serial.print("IP address: "); 
+  IPAddress ip = Ethernet.localIP();
+  for (byte i = 0; i < 4; i++) {
+    Serial.print(ip[i], DEC);
+    if(i < 3){Serial.print(".");}
+    else {Serial.print("\n");}
+  }
+  Serial.println();
+  server.begin(); // включаем ожидание входящих соединений
+  //Serial.println(Ethernet.localIP()); // выводим IP-адрес контроллера
+
 }
 
 /**
@@ -63,6 +100,22 @@ void loop() {
   if(u8summ > 1){Serial.println(u8summ);}
   // diagnose communication
   
+  client = server.available(); // ожидаем объект клиент
+  if (client) {
+    // есть данные от клиента
+    if (clientAlreadyConnected == false) {
+      // сообщение о подключении
+      Serial.println("Client connected");
+      client.println("Server ready"); // ответ клиенту
+      clientAlreadyConnected= true; 
+    }
+
+    while(client.available() > 0) {
+      char chr = client.read(); // чтение символа
+      server.write(chr); // передача клиенту
+      Serial.write(chr);
+    } 
+  }
 
 
   
@@ -215,3 +268,5 @@ void pressStart(){
     pinMode(DIG[1], INPUT);  // DIG_2
     pinMode(DIG[2], INPUT);  // DIG_3
   }
+
+
