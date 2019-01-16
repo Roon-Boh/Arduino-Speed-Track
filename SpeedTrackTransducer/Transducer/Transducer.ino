@@ -248,12 +248,10 @@ void loop() {
             }
             
             if(cmdbuf.indexOf("reset:true")>= 0){
-              if(!A3) {
-                for(int i = 0; i < 512; i++){
-                  EEPROM.write(i, 0xFF);
-                }
-                cmdbuf.replace("reset:true,", "");
+              for(int i = 0; i < 512; i++){
+                EEPROM.write(i, 0xFF);
               }
+              cmdbuf.replace("reset:true,", "");
             }
             
             if(cmdbuf.indexOf("restart:true")>= 0){
