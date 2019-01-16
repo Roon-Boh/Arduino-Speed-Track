@@ -38,21 +38,10 @@ uint8_t max_reed_dig_count = 10;// максимальное кол-во счит
 uint8_t reed_dig[4][11] = {0}; // массив данных для считывания дисплея.
 boolean uart_status = false;
 int8_t u8summbuf = 0; // буфер скорости для передачи удаленному серверу
-unsigned long starttime;
 unsigned long buftime; // время последнего запроса
-
-char post; 
-
-// начальный адрес памяти EEPROM
-int address = 0;
-byte value;
-
-//byte mac[] = {0xAE, 0xB2, 0x26, 0xE4, 0x4A, 0x5C}; // MAC-адрес
-// Введите MAC-адрес и IP-адрес для вашего контроллера ниже.
-// IP-адрес будет зависеть от вашей локальной сети:
-
-// Инициализируйте библиотеку сервера Ethernet
-// с IP-адресом и портом, который вы хотите использовать
+char post;
+int buflife;
+boolean reset = false;
 // (порт 80 по умолчанию для HTTP):
 EthernetServer server(80);
 
@@ -60,9 +49,7 @@ EthernetServer server(80);
  *  Setup procedure
  */
 void setup() {
-  //IPAddress ip(192, 168, 0, 77);
-  
-  
+  reset = false; 
   // Если A3 поддтянут к земле то чищу EEPROM
   if(!A3) {
     for(int i = 0; i < 512; i++){
@@ -101,6 +88,11 @@ void setup() {
       ip_set[2] = 0;
       ip_set[3] = 77;
   }
+  if(EEPROM.read(30) == 127){
+      buflife = (EEPROM.read(31)*0x100) + EEPROM.read(32);
+  } else {
+      buflife = 5000;
+  }
   IPAddress ip(ip_set[0], ip_set[1], ip_set[2], ip_set[3]);
   
   Serial.begin(9600);
@@ -127,6 +119,10 @@ void setup() {
  *  Loop procedure
  */
 void loop() {
+  if(reset == true) {
+    reset = false;
+    asm volatile("jmp 0x00");
+  }
   // получаем значение скорости
   int8_t u8summ = getDisplay();
 
@@ -151,10 +147,11 @@ void loop() {
   // слушать входящих клиентов
   EthernetClient client = server.available();
   if (client) {
-    Serial.println("new client");
     // HTTP-запрос заканчивается пустой строкой
     boolean currentLineIsBlank = true;
-    String buffer = String(""); // буфер от клиента 
+    String buffer = String(""); // буфер от клиента
+    String printbuffer = String("");  // буфер для клиента
+    String msg = String("");
     while (client.connected()) {
       if (client.available()) {
         char c = client.read();
@@ -170,15 +167,104 @@ void loop() {
               buffer += post;
             }
           }
-          // cmd=ip:192.168.0.77,mac:255.255.255.255.255.255
-          // cmd=ip%3A192.168.0.77%2Cmac%3A255.255.255.255.255.255
           if (buffer.indexOf("cmd=") >= 0) {
-            // to do
+            if (buffer.indexOf("%3A") >= 0) {
+              buffer.replace("%3A", ":");
+            }
+            if (buffer.indexOf("%2C") >= 0) {
+              buffer.replace("%2C", ",");
+            }
+            String cmdbuf = String(buffer);
+            cmdbuf.replace("cmd=", "");
+            if(cmdbuf.indexOf("ip:")>= 0){
+              // извлекаем значение
+              cmdbuf.replace("ip:", "");
+              //byte index = cmdbuf.indexOf(".");
+              byte ip_set[4];
+              //String prs;
+              for(byte i = 0; i < 4 ; i++) {
+                String separator = ".";
+                if(i == 3) {
+                  separator = ",";
+                }
+                byte index = cmdbuf.indexOf(separator);
+                String prs = cmdbuf.substring(0, index);
+                ip_set[i] = prs.toInt();
+                cmdbuf.replace(prs + separator, "");
+              }
+
+              // записываем в EEPROM
+              if(ip_set[0] == 192 && ip_set[1] == 168){
+                  if(ip_set[2] + ip_set[3] >= 2) {
+                    EEPROM.write(20, 127);
+                    EEPROM.write(21, ip_set[0]);
+                    EEPROM.write(22, ip_set[1]);
+                    EEPROM.write(23, ip_set[2]);
+                    EEPROM.write(24, ip_set[3]);
+                  }
+              }
+            }
+            
+            if(cmdbuf.indexOf("mac:")>= 0){
+              // извлекаем значение
+              cmdbuf.replace("mac:", "");
+              //byte index = cmdbuf.indexOf(".");
+              byte mac_set[4];
+              //String prs;
+              for(byte i = 0; i < 4 ; i++) {
+                String separator = ".";
+                if(i == 3) {
+                  separator = ",";
+                }
+                byte index = cmdbuf.indexOf(separator);
+                String prs = cmdbuf.substring(0, index);
+                mac_set[i] = prs.toInt();
+                cmdbuf.replace(prs + separator, "");
+              }
+
+              // записываем в EEPROM
+              if(mac_set[0] >= 1 && mac_set[1] >= 2){
+                  if(mac_set[2] + mac_set[3] >= 2) {
+                    EEPROM.write(10, 127);
+                    for(byte i = 0; i <6; i++){
+                      EEPROM.write(11 + i, mac_set[i]);
+                    }
+                  }
+              }
+            }
+
+             
+            if(cmdbuf.indexOf("buflife:")>= 0){
+              cmdbuf.replace("buflife:", "");
+              for(byte i = 0; i < 1 ; i++) {
+                byte index = cmdbuf.indexOf(",");
+                String prs = cmdbuf.substring(0, index);
+                buflife = prs.toInt();
+                cmdbuf.replace(prs + ",", "");
+              }
+              EEPROM.write(30, 127);
+              EEPROM.write(31, highByte(buflife)) ;
+              EEPROM.write(32, lowByte(buflife));
+            }
+            
+            if(cmdbuf.indexOf("eeprom:rewrite")>= 0){
+              if(!A3) {
+                for(int i = 0; i < 512; i++){
+                  EEPROM.write(i, 0xFF);
+                }
+                cmdbuf.replace("eeprom:rewrite,", "");
+                cmdbuf.replace("eeprom:rewrite", "");
+              }
+            }
+            
+            if(cmdbuf.indexOf("reset:true")>= 0){
+              reset = true;
+            }
           }
 
           
           // Отправить стандартный заголовок HTTP-ответа
-          if(5000 < (millis() - buftime)){
+          if(buflife < (millis() - buftime)){
             u8summbuf = 0;
           }
           client.println("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!DOCTYPE HTML><html><h1>" + String(u8summbuf) + "</h1>");
