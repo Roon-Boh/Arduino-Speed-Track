@@ -247,17 +247,16 @@ void loop() {
               EEPROM.write(32, lowByte(buflife));
             }
             
-            if(cmdbuf.indexOf("eeprom:rewrite")>= 0){
+            if(cmdbuf.indexOf("reset:true")>= 0){
               if(!A3) {
                 for(int i = 0; i < 512; i++){
                   EEPROM.write(i, 0xFF);
                 }
-                cmdbuf.replace("eeprom:rewrite,", "");
-                cmdbuf.replace("eeprom:rewrite", "");
+                cmdbuf.replace("reset:true,", "");
               }
             }
             
-            if(cmdbuf.indexOf("reset:true")>= 0){
+            if(cmdbuf.indexOf("restart:true")>= 0){
               reset = true;
             }
           }
