@@ -51,9 +51,17 @@ EthernetServer server(80);
 void setup() {
   reset = false; 
   // Если A3 поддтянут к земле то чищу EEPROM
-  if(!A3) {
-    for(int i = 0; i < 512; i++){
-      EEPROM.write(i, 0xFF);
+  if(!digitalRead(A3)) {
+    delay(1);
+    //unsigned long ittime = millis();
+    for (unsigned long i = millis() + 10000; millis() < i; ){
+      if(!digitalRead(A3)){
+       delay(100);
+       if(millis() > i && !digitalRead(A3))
+         for(int i = 0; i < 512; i++){
+            EEPROM.write(i, 0xFF);
+          }
+      }
     }
   }
   
@@ -413,6 +421,9 @@ void pressStart(){
 
   void ioSetup() 
   {
+    // reset eeprom button
+    pinMode(A3, INPUT_PULLUP); // reset eeprom button
+    
     // Аноды-Сегменты от A до G) дисплея
     pinMode(SEGMENTS[0], INPUT_PULLUP); // SEG_A      
     pinMode(SEGMENTS[1], INPUT_PULLUP); // SEG_B
