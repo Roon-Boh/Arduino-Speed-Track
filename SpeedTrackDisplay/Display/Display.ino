@@ -1,89 +1,69 @@
-/**
-    Modbus slave example 2:
-    The purpose of this example is to link the Arduino digital and analog
-    pins to an external device.
-
-    Recommended Modbus Master: QModbus
-    http://qmodbus.sourceforge.net/
-*/
-
 #include <SPI.h>
+#include <UIPEthernet.h>
 #include <DMD2.h>
 #include <fonts/BigMonoFont32x48.h>
-#define PINBRIGHT A6 // переключатель HBRIGHT\LBRIGHT
-#define LBRIGHT 10 // подсветка минимальная
-#define HBRIGHT 200 // подсветка максимал
-SoftDMD dmd(2, 3); // DMD controls the entire display
-// SoftDMD::SoftDMD(byte panelsWide, byte panelsHigh, byte pin_noe, byte pin_a, byte pin_b, byte pin_sck, byte pin_clk, byte pin_r_data)
-unsigned long display_time;
-uint8_t display_boof = 0;
-uint8_t display_summ = 0;
-////////
+#define DISPLAYS_WIDE 2
+#define DISPLAYS_HIGH 3
+#define PIN_NOE    A0  // 1
+#define PIN_A      A1  // 2
+#define PIN_B      A2  // 4
+#define PIN_CLK    A3  // 8  default to h/w SPI SCK D13
+#define PIN_SCK    A4  // 10
+#define PIN_R_DATA A5  // 12 default to h/w SPI MOSI D11
+// SoftDMD dmd(DISPLAYS_WIDE,DISPLAYS_HIGH, 9, 6, 7, 8, 11, 13);
+SoftDMD dmd(DISPLAYS_WIDE, DISPLAYS_HIGH, PIN_NOE,  PIN_A, PIN_B, PIN_SCK, PIN_CLK, PIN_R_DATA);
+EthernetServer server(80);
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress ip(192, 168, 0, 77);
 
-/**
-    Setup procedure
-*/
+// the setup routine runs once when you press reset:
 void setup() {
-  dmd.setBrightness(LBRIGHT);
-  dmd.selectFont(BigMonoFont32x48);
-  dmd.begin();
-  Serial.begin(19200);
-
-  pinMode(13, OUTPUT);
-  pinMode(PINBRIGHT, INPUT);
-  if (analogRead(PINBRIGHT)> 10) {
-    dmd.setBrightness(HBRIGHT);
-  }
-}
-void loop() {
-  if (Serial.available() >= 3 && Serial.read() == ':') { // если пришли даные
+    Ethernet.begin(mac, ip);
+    server.begin();
+    Serial.println(Ethernet.localIP());
     
-    char ichar1= Serial.read();
-    char ichar2= Serial.read();
-    uint8_t summsr;
-    if(isHexadecimalDigit(ichar1) && isHexadecimalDigit(ichar2)){
-      summsr = digchar(ichar2)+(digchar(ichar1)*0x10);
-    }
-    else {summsr = 0;}
-      oledWrite(summsr);
-  }
+    dmd.setBrightness(150);
+    dmd.selectFont(BigMonoFont32x48);
+    dmd.begin();
 }
 
+int phase = 0; // 0-3, 'phase' value determines direction
 
-
-
-unsigned char digchar(unsigned char v)
-{ v -= '0';
-  if (v > 41) return v - 39; /* a .. f */
-  if (v > 9) return v - 7; /* A .. F */
-  return v; /* 0 .. 9 */
-}
-
-
-/**
-  управляет дисплеем из P10 модулей,
-  при отсутствии данных, очищает дисплей,
-  оставляет дисплей неизменным.
-*/
-int oledWrite (uint8_t ol_u8summ)
-{
-  if (0 < ol_u8summ) { // если не ноль
-    int8_t n = -1; // задаем начальное смещение влево на пиксель
-    if (ol_u8summ < 10) n = 15; // если один знак то центрируем
-    else if (99 < ol_u8summ) n = -15; // если три знака то центрируем по 2-му
-    if (display_boof != ol_u8summ) { // сравниваем с буфером
-      if (10 < display_boof && ol_u8summ < 10) dmd.clearScreen();
-      display_boof = ol_u8summ;
-      display_time = millis() + 10000;
-      dmd.drawString(n, -1, String(ol_u8summ));
+// the loop routine runs over and over again forever:
+void loop() {
+    dmd.drawString(-20, 0, "123");
+    //dmd.clearScreen();
+    
+    EthernetClient client = server.available();
+    if (client) {
+    // HTTP-запрос заканчивается пустой строкой
+    boolean currentLineIsBlank = true;
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        Serial.write(c);
+        // если вы дошли до конца строки (получили символ новой строки) и строка пуста,
+        // http-запрос завершен, поэтому вы можете отправить ответ
+        if (c == '\n' && currentLineIsBlank) {
+          // Отправить стандартный заголовок HTTP-ответа
+          client.println("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!DOCTYPE HTML><html><h1>HELLO I`M P10!</h1><pre>");
+          client.println("</pre></html>");
+          break;
+        }
+        if (c == '\n') {
+          // Вы начинаете новую строку
+          currentLineIsBlank = true;
+        } else if (c != '\r') {
+          //вы получили символ в текущей строке
+          currentLineIsBlank = false;
+        }
+      }
     }
-    if (millis() > display_time) {    // давно не приходят данные
-      ol_u8summ = 0;                  // то очищаем дисплей
-      display_boof = 0;
-      dmd.clearScreen();
-      display_time = millis() + 60000;
-      /*для отладки*/
-      dmd.drawString(15, -1, String(ol_u8summ));
-    }
+    // дать веб-браузеру время для получения данных
+    delay(1);
+    // закрыть соединение:
+    client.stop();
+    Serial.println("Disconnected");
   }
+
 }
